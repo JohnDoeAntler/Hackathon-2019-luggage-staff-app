@@ -9,9 +9,10 @@ class InitialStoreState extends StoreState {}
 class LoadingStoreState extends StoreState {}
 
 class LoadedStoreState extends StoreState {
+  final int id;
   final String token;
 
-  LoadedStoreState(this.token);
+  LoadedStoreState(this.id, this.token);
 }
 
 class ErrorStoreState extends StoreState {

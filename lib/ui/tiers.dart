@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:qrcode_reader/qrcode_reader.dart';
 import 'package:http/http.dart' as http;
-import 'package:staff_app/model/luggage.dart';
+import 'package:staff_app/bloc/bloc.dart';
+import 'package:staff_app/model/airplane_class.dart';
 import 'package:staff_app/model/user.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class TiersPage extends StatefulWidget {
   @override
@@ -174,36 +176,65 @@ class TierItem extends StatelessWidget {
 
                   futureString.then((str) async {
                     final qr_response = await http.get('http://119.246.37.218:3000/qrcode/auth?token=$str');
-                    final user_id = json.decode(qr_response.body)['user']['id'];
-                    final user_response = await http.get('http://119.246.37.218:3000/users/$user_id');
 
-                    final luggages = json.decode(user_response.body)['luggages'].map((luggage) => Luggage.fromJson(luggage)).toList();
+                    if (json.decode(qr_response.body).containsKey('user')) {
+                      final user = User.fromJson(json.decode(qr_response.body)['user']);
 
-                    print(luggages.map((l) => l.width * l.length * l.height).reduce((a, b) => a + b));
+                      final airplaneClassResponse = await http.get('http://119.246.37.218:3000/airplane_classes/${user.airplaneClassId}');
+                      final purchaseLogsResponse = await http.get('http://119.246.37.218:3000/purchase_logs?user_id=${user.id}');
 
-                    showDialog(
-                      context: context,
-                      builder: (context) {
-                        return AlertDialog(
-                          title: Text('Space assignment'),
-                          content: Text('Are you confirm to assgin $spaceIncrement cm^3 space to user?'),
-                          actions: <Widget>[
-                            FlatButton(
-                              onPressed: () => {
-                                Navigator.of(context).pop()
-                              },
-                              child: Text('No'),
-                            ),
-                            FlatButton(
-                              onPressed: () => {
-                                Navigator.of(context).pop()
-                              },
-                              child: Text('Yes'),
-                            ),
-                          ],
+                      final airplaneClass = AirplaneClass.fromJson(json.decode(airplaneClassResponse.body));
+                      final space = airplaneClass.binAmount * airplaneClass.binHeight * airplaneClass.binLength * airplaneClass.binWidth / airplaneClass.seatAmount;
+                      
+                      final purchasableSpace = space * airplaneClass.purchasableSpacePercentage;
+                      final purchasedSpace = json.decode(purchaseLogsResponse.body).map((pl) => double.parse(pl['space_increasement'])).reduce((a, b) => a + b);
+
+                      if (purchasedSpace + spaceIncrement <= purchasableSpace) {
+
+                        final storeBloc = BlocProvider.of<StoreBloc>(context);
+
+                        showDialog(
+                          context: context,
+                          builder: (context) {
+                            return AlertDialog(
+                              title: Text('Space assignment'),
+                              content: Text('Are you confirm to assgin $spaceIncrement cm^3 space to user?'),
+                              actions: <Widget>[
+                                FlatButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: Text('No'),
+                                ),
+                                FlatButton(
+                                  onPressed: () async {
+                                    final response = await http.post('http://119.246.37.218:3000/purchase_logs?token=${(storeBloc.currentState as LoadedStoreState).token}&user_id=${user.id}&store_id=${(storeBloc.currentState as LoadedStoreState).id}&space_increasement=$spaceIncrement');
+                                    Navigator.of(context).pop();
+                                  },
+                                  child: Text('Yes'),
+                                ),
+                              ],
+                            );
+                          }
+                        );
+                      } else {
+                        showDialog(
+                          context: context,
+                          builder: (context) {
+                            return AlertDialog(
+                              title: Text('Error'),
+                              content: Text('This user cannot purchase this tier due to exceeded purchasable space limit (${purchasedSpace.round() + spaceIncrement.round()} / ${purchasableSpace.round()}).'),
+                              actions: <Widget>[
+                                FlatButton(
+                                  onPressed: () => {
+                                    Navigator.of(context).pop()
+                                  },
+                                  child: Text('OK'),
+                                ),
+                              ],
+                            );
+                          }
                         );
                       }
-                    );
+                    }
                   });
                 },
                 child: SizedBox.expand(

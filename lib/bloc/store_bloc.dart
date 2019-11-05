@@ -12,15 +12,13 @@ class StoreBloc extends Bloc<StoreEvent, StoreState> {
   Stream<StoreState> mapEventToState(
     StoreEvent event,
   ) async* {
-    // TODO: Add Logic
     if (event is GetStore) {
       yield LoadingStoreState();
-
       final response = await http.get('http://119.246.37.218:3000/auth?username=${event.username}&password=${event.password}');
       final obj = json.decode(response.body);
 
       if (!obj.containsKey('error')) {
-        yield LoadedStoreState(obj['token']);
+        yield LoadedStoreState(obj['id'] ,obj['token']);
       } else {
         yield ErrorStoreState(obj['error']);
       }

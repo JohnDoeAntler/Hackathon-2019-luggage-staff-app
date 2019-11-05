@@ -95,9 +95,11 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        centerTitle: true,
+        title: Text('SCAN APP'),
       ),
       body: AnimatedSwitcher(
-        switchInCurve: Curves.easeInQuint,
+        switchInCurve: Curves.easeOutQuint,
         switchOutCurve: Curves.easeInQuint,
         duration: Duration(
           seconds: 1
